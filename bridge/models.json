@@ -1,0 +1,169 @@
+[
+  {
+    "id": "wandb/reflection/Beam-1.0-501B-A23B",
+    "name": "Beam 1.0",
+    "context": 1048576,
+    "output": 1048576,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B",
+    "name": "Nemotron 3.5 Super VL",
+    "context": 1048576,
+    "output": 1048576,
+    "input": [
+      "text",
+      "image"
+    ]
+  },
+  {
+    "id": "wandb/deepseek-ai/DeepSeek-V4.1-Flash",
+    "name": "DeepSeek V4.1 Flash",
+    "context": 1048576,
+    "output": 1048576,
+    "input": [
+      "text",
+      "image"
+    ]
+  },
+  {
+    "id": "wandb/zai-org/GLM-5.3-Flash",
+    "name": "GLM 5.3 Flash",
+    "context": 1048576,
+    "output": 1048576,
+    "input": [
+      "text",
+      "image"
+    ]
+  },
+  {
+    "id": "wandb/ibm-granite/granite-4.2-8b",
+    "name": "Granite 4.2 8B",
+    "context": 131072,
+    "output": 131072,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/deepseek-ai/DeepSeek-V4-Pro-0813",
+    "name": "DeepSeek V4 Pro 0813",
+    "context": 1048576,
+    "output": 1048576,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/Qwen/Qwen3.8-27B",
+    "name": "Qwen3.8 27B",
+    "context": 262144,
+    "output": 262144,
+    "input": [
+      "text",
+      "image"
+    ]
+  },
+  {
+    "id": "wandb/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B",
+    "name": "Nemotron 3.5 Lightning",
+    "context": 262144,
+    "output": 262144,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/deepseek-ai/DeepSeek-V4-Flash-0731",
+    "name": "DeepSeek V4 Flash 0731",
+    "context": 262144,
+    "output": 262144,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/MiniMaxAI/MiniMax-M3",
+    "name": "MiniMax M3",
+    "context": 262144,
+    "output": 262144,
+    "input": [
+      "text",
+      "image"
+    ]
+  },
+  {
+    "id": "wandb/deepseek-ai/DeepSeek-V4-Flash",
+    "name": "DeepSeek V4-Flash",
+    "context": 1048576,
+    "output": 1048576,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/deepseek-ai/DeepSeek-V4-Pro",
+    "name": "DeepSeek V4 Pro",
+    "context": 1048576,
+    "output": 1048576,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/zai-org/GLM-5.2",
+    "name": "GLM 5.2",
+    "context": 1048576,
+    "output": 1048576,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
+    "name": "Nemotron 3 Ultra",
+    "context": 262144,
+    "output": 262144,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8",
+    "name": "NVIDIA Nemotron 3 Super 120B",
+    "context": null,
+    "output": null,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/openai/gpt-oss-120b",
+    "name": "gpt-oss-120b",
+    "context": 131072,
+    "output": 131072,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/openai/gpt-oss-20b",
+    "name": "gpt-oss-20b",
+    "context": 131072,
+    "output": 131072,
+    "input": [
+      "text"
+    ]
+  },
+  {
+    "id": "wandb/JetBrains/Mellum2-12B-A2.5B-Instruct",
+    "name": "Mellum2 12B A2.5B",
+    "context": 131072,
+    "output": 131072,
+    "input": [
+      "text"
+    ]
+  }
+]

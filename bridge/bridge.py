@@ -214,20 +214,63 @@ def parse_pair_prompt(prompt):
     return config
 
 
+def is_windows():
+    return sys.platform == "win32"
+
+
+def _windows_dpapi(data, decrypt=False):
+    import ctypes
+    from ctypes import wintypes
+
+    class Blob(ctypes.Structure):
+        _fields_ = [("size", wintypes.DWORD), ("data", ctypes.POINTER(ctypes.c_ubyte))]
+
+    crypt = ctypes.WinDLL("crypt32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    function = crypt.CryptUnprotectData if decrypt else crypt.CryptProtectData
+    function.argtypes = [ctypes.POINTER(Blob), ctypes.c_void_p, ctypes.c_void_p,
+                         ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(Blob)]
+    function.restype = wintypes.BOOL
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel.LocalFree.restype = ctypes.c_void_p
+    buffer = (ctypes.c_ubyte * len(data)).from_buffer_copy(data)
+    incoming, outgoing = Blob(len(data), buffer), Blob()
+    if not function(ctypes.byref(incoming), None, None, None, None, 1, ctypes.byref(outgoing)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        return ctypes.string_at(outgoing.data, outgoing.size)
+    finally:
+        kernel.LocalFree(ctypes.cast(outgoing.data, ctypes.c_void_p))
+
+
+def protect_windows(data):
+    return _windows_dpapi(data)
+
+
+def unprotect_windows(data):
+    return _windows_dpapi(data, decrypt=True)
+
+
+def private_file(path):
+    if path.is_symlink() or (not is_windows() and path.stat().st_mode & 0o077):
+        raise ValueError("Session file is not private")
+
+
 def write_session(path, session):
     validate_upstream(session)
     path = Path(path)
     existing = {}
     if path.exists():
-        if path.is_symlink() or path.stat().st_mode & 0o077:
-            raise ValueError("Existing session file is not private")
-        existing = json.loads(path.read_text(encoding="utf-8"))
+        existing = read_session(path)
     data = dict(session)
     data["local_key"] = existing.get("local_key") or secrets.token_urlsafe(32)
+    contents = json.dumps(data).encode("utf-8")
+    if is_windows():
+        contents = b"DPAPI1\n" + protect_windows(contents)
     fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=".session-")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            json.dump(data, stream)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(contents)
         os.replace(temporary, path)
     finally:
         if os.path.exists(temporary):
@@ -236,9 +279,13 @@ def write_session(path, session):
 
 def read_session(path):
     path = Path(path)
-    if path.is_symlink() or path.stat().st_mode & 0o077:
-        raise ValueError("Session file is not private")
-    data = json.loads(path.read_text(encoding="utf-8"))
+    private_file(path)
+    contents = path.read_bytes()
+    if is_windows():
+        if not contents.startswith(b"DPAPI1\n"):
+            raise ValueError("Session file is not encrypted")
+        contents = unprotect_windows(contents[len(b"DPAPI1\n"):])
+    data = json.loads(contents)
     validate_upstream(data)
     if not all(isinstance(data.get(k), str) and data[k] for k in ("token", "local_key")):
         raise ValueError("Session file is incomplete")
@@ -344,7 +391,7 @@ def make_server(host, port, config):
 
 def main():
     parser = argparse.ArgumentParser(description="Local OpenAI-compatible bridge for a running Molab notebook")
-    parser.add_argument("action", choices=("import-prompt", "check", "serve"))
+    parser.add_argument("action", choices=("import-prompt", "check", "key", "serve"))
     parser.add_argument("--session", default=str(Path(__file__).with_name("session.json")))
     parser.add_argument("--port", type=int, default=8766)
     args = parser.parse_args()
@@ -353,6 +400,9 @@ def main():
         print("Molab session saved securely")
         return
     config = read_session(args.session)
+    if args.action == "key":
+        print(config["local_key"])
+        return
     if args.action == "check":
         discover_session(config)
         print("Molab notebook is reachable")

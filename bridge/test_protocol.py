@@ -3,6 +3,8 @@ import io
 import json
 import os
 import stat
+import subprocess
+import sys
 import threading
 import tempfile
 import urllib.request
@@ -10,6 +12,7 @@ import urllib.error
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import unittest
+from unittest.mock import patch
 
 
 def load_bridge():
@@ -20,6 +23,49 @@ def load_bridge():
 
 
 class ProtocolTest(unittest.TestCase):
+    def test_client_key_command_reads_the_private_session(self):
+        bridge = load_bridge()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory, 'session.json')
+            bridge.write_session(target, {'base_url': 'https://sb-test.sb.molab.run', 'token': 'private'})
+            expected = bridge.read_session(target)['local_key']
+            result = subprocess.run([sys.executable, bridge.__file__, 'key', '--session', str(target)],
+                                    capture_output=True, text=True, check=True)
+            self.assertEqual(result.stdout.strip(), expected)
+
+    def test_windows_session_is_encrypted_and_refresh_preserves_client_key(self):
+        bridge = load_bridge()
+        def encrypt(value):
+            return value[::-1]
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(bridge, 'is_windows', return_value=True), \
+             patch.object(bridge, 'protect_windows', side_effect=encrypt), \
+             patch.object(bridge, 'unprotect_windows', side_effect=encrypt):
+            target = Path(directory, 'session.json')
+            bridge.write_session(target, {'base_url': 'https://sb-test.sb.molab.run', 'token': 'private-token'})
+            first = bridge.read_session(target)
+            self.assertNotIn(b'private-token', target.read_bytes())
+            bridge.write_session(target, {'base_url': 'https://sb-test.sb.molab.run', 'token': 'new-token'})
+            second = bridge.read_session(target)
+            self.assertEqual(first['local_key'], second['local_key'])
+            self.assertEqual(second['token'], 'new-token')
+
+    def test_windows_rejects_unencrypted_session(self):
+        bridge = load_bridge()
+        with tempfile.TemporaryDirectory() as directory, patch.object(bridge, 'is_windows', return_value=True):
+            target = Path(directory, 'session.json')
+            target.write_text('{"token":"plain"}')
+            with self.assertRaisesRegex(ValueError, 'not encrypted'):
+                bridge.read_session(target)
+
+    @unittest.skipUnless(sys.platform == 'win32', 'requires Windows DPAPI')
+    def test_windows_dpapi_roundtrip(self):
+        bridge = load_bridge()
+        secret = b'private-session-token'
+        encrypted = bridge.protect_windows(secret)
+        self.assertNotIn(secret, encrypted)
+        self.assertEqual(bridge.unprotect_windows(encrypted), secret)
+
     def test_upstream_error_explains_rate_limit_and_unavailable_model(self):
         bridge = load_bridge()
         self.assertIn('rate limit', bridge.upstream_error_message(RuntimeError('status_code: 429 secret')))
@@ -332,20 +378,22 @@ Use this auth token: `execute-code.sh --url https://sb-test-123.sb.molab.run/ --
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory, "session.json")
             bridge.write_session(target, {"base_url": "https://sb-test.sb.molab.run", "token": "private"})
-            self.assertEqual(stat.S_IMODE(os.stat(target).st_mode), 0o600)
-            self.assertEqual(json.loads(target.read_text())["token"], "private")
+            if not bridge.is_windows():
+                self.assertEqual(stat.S_IMODE(os.stat(target).st_mode), 0o600)
+            self.assertEqual(bridge.read_session(target)["token"], "private")
 
     def test_session_refresh_preserves_local_client_key(self):
         bridge = load_bridge()
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory, "session.json")
             bridge.write_session(target, {"base_url": "https://sb-test.sb.molab.run", "token": "first"})
-            old = json.loads(target.read_text())
+            old = bridge.read_session(target)
             bridge.write_session(target, {"base_url": "https://sb-new.sb.molab.run", "token": "second"})
-            new = json.loads(target.read_text())
+            new = bridge.read_session(target)
             self.assertEqual(old["local_key"], new["local_key"])
             self.assertEqual(new["token"], "second")
 
+    @unittest.skipIf(sys.platform == 'win32', 'Windows uses DPAPI instead of Unix permissions')
     def test_session_loading_rejects_world_readable_credentials(self):
         bridge = load_bridge()
         with tempfile.TemporaryDirectory() as directory:

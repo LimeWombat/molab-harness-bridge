@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the Molab bridge and its launch agent on macOS."""
+"""Install the Molab bridge on macOS, Linux, or Windows."""
 
 import argparse
 import importlib.util
@@ -12,6 +12,16 @@ from pathlib import Path
 
 
 LABEL = 'io.local.molab-bridge'
+
+
+def install_target(platform, home, environ):
+    if platform == 'darwin':
+        return home / 'Library' / 'Application Support' / 'MolabBridge'
+    if platform == 'win32':
+        return Path(environ.get('LOCALAPPDATA') or home / 'AppData' / 'Local') / 'MolabBridge'
+    if platform.startswith('linux'):
+        return Path(environ.get('XDG_DATA_HOME') or home / '.local' / 'share') / 'molab-bridge'
+    raise ValueError('Unsupported operating system')
 
 
 def install(source, target, agents):
@@ -27,6 +37,8 @@ def install(source, target, agents):
         shutil.copy2(source / 'bridge' / name, runtime / name)
     for prompt in prompts.glob('*.md'):
         shutil.copy2(prompt, prompt_target / prompt.name)
+    if agents is None:
+        return runtime, None
     agents.mkdir(mode=0o700, parents=True, exist_ok=True)
     agent = {'Label': LABEL, 'ProgramArguments': ['/usr/bin/python3', str(runtime / 'bridge.py'),
              'serve', '--port', '49876'], 'WorkingDirectory': str(runtime), 'RunAtLoad': True,
@@ -58,22 +70,29 @@ def start_service(domain, agent):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--refresh', action='store_true', help='Import a new Molab Pair prompt from the clipboard')
+    parser.add_argument('--prompt-stdin', action='store_true', help='Read the Pair prompt from standard input')
     args = parser.parse_args()
-    if sys.platform != 'darwin':
-        raise SystemExit('Automatic installation currently supports macOS only.')
     source = Path(__file__).resolve().parent
-    target = Path.home() / 'Library' / 'Application Support' / 'MolabBridge'
-    runtime, agent = install(source, target, Path.home() / 'Library' / 'LaunchAgents')
+    target = install_target(sys.platform, Path.home(), os.environ)
+    agents = Path.home() / 'Library' / 'LaunchAgents' if sys.platform == 'darwin' else None
+    runtime, agent = install(source, target, agents)
     session = runtime / 'session.json'
     if args.refresh or not session.is_file():
-        prompt = subprocess.run(['pbpaste'], capture_output=True, text=True, check=True).stdout
+        if args.prompt_stdin:
+            prompt = sys.stdin.read()
+        elif sys.platform == 'darwin':
+            prompt = subprocess.run(['pbpaste'], capture_output=True, text=True, check=True).stdout
+        else:
+            raise SystemExit('Provide the copied Molab Pair prompt using --prompt-stdin; see README.md.')
         try:
             import_session(runtime, prompt)
         except ValueError:
             raise SystemExit('Copy the Molab Pair prompt first, then run this installer again.')
-    domain = f'gui/{os.getuid()}'
-    start_service(domain, agent)
-    print('Molab bridge installed and started at http://127.0.0.1:49876/v1')
+    if agent:
+        start_service(f'gui/{os.getuid()}', agent)
+        print('Molab bridge installed and started at http://127.0.0.1:49876/v1')
+    else:
+        print('Molab bridge installed. Start it using the command for your platform in README.md.')
     print(f'The local client key is stored in {session} (local_key).')
     print('Add a custom OpenAI Chat Completions provider in DeepSeek Harness; see README.md.')
 

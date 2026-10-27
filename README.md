@@ -55,7 +55,7 @@ The base URL is `http://127.0.0.1:49876/v1`; use **OpenAI Chat Completions**, no
 
 ### OpenCode
 
-Copy [examples/opencode.json](examples/opencode.json) into your project as `opencode.json`, or merge its `molab` provider into an existing configuration without overwriting other providers. The example registers GLM-5.2; add other IDs from the catalog as needed. In the terminal that launches OpenCode, set the key:
+Copy [examples/opencode.json](examples/opencode.json) into your project as `opencode.json`, or merge its `molab` provider into an existing configuration without overwriting other providers. The example registers the models from the bundled catalog; availability and tool support depend on Molab. In the terminal that launches OpenCode, set the key:
 
 ```sh
 # macOS

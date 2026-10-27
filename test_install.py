@@ -14,6 +14,14 @@ from pathlib import Path
 
 
 class InstallTest(unittest.TestCase):
+    def test_opencode_example_contains_the_model_catalog_without_credentials(self):
+        source = Path(__file__).parent
+        example = json.loads((source / 'examples' / 'opencode.json').read_text())
+        catalog = json.loads((source / 'bridge' / 'models.json').read_text())
+        provider = example['provider']['molab']
+        self.assertEqual(set(provider['models']), {model['id'] for model in catalog})
+        self.assertEqual(provider['options']['apiKey'], '{env:MOLAB_BRIDGE_API_KEY}')
+
     @unittest.skipUnless(sys.platform.startswith('linux') or sys.platform == 'win32', 'foreground installation is for Linux and Windows')
     def test_platform_installer_starts_gateway_and_lists_models(self):
         import install

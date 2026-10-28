@@ -23,6 +23,34 @@ def load_bridge():
 
 
 class ProtocolTest(unittest.TestCase):
+    def test_gateway_does_not_add_jailbreak_to_client_messages(self):
+        bridge = load_bridge()
+        captured = []
+        class Upstream(BaseHTTPRequestHandler):
+            def do_POST(self):
+                captured.append(json.loads(self.rfile.read(int(self.headers['Content-Length']))))
+                self.send_response(200); self.end_headers()
+                self.wfile.write(b'data: {"type":"text-delta","delta":"ok"}\n\ndata: {"type":"finish"}\n\n')
+            def log_message(self, *args):
+                pass
+        upstream = ThreadingHTTPServer(('127.0.0.1', 0), Upstream)
+        threading.Thread(target=upstream.serve_forever, daemon=True).start()
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, 'Unified.md').write_text('unwanted hidden instruction')
+            server = bridge.make_server('127.0.0.1', 0, {'base_url':f'http://127.0.0.1:{upstream.server_port}',
+                'token':'test', 'session_id':'test', 'local_key':'test', 'models':['m'], 'prompt_dir':directory})
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            try:
+                messages = [{'role':'system','content':'client instruction'}, {'role':'user','content':'hello'}]
+                request = urllib.request.Request(f'http://127.0.0.1:{server.server_port}/v1/chat/completions',
+                    json.dumps({'model':'m', 'messages':messages}).encode(),
+                    {'Authorization':'Bearer test', 'Content-Type':'application/json'})
+                with urllib.request.urlopen(request) as response:
+                    self.assertEqual(json.load(response)['choices'][0]['message']['content'], 'ok')
+                self.assertEqual([m['parts'][0]['text'] for m in captured[0]['uiMessages']], ['client instruction', 'hello'])
+            finally:
+                server.shutdown(); server.server_close(); upstream.shutdown(); upstream.server_close()
+
     def test_client_key_command_reads_the_private_session(self):
         bridge = load_bridge()
         with tempfile.TemporaryDirectory() as directory:
@@ -233,18 +261,6 @@ class ProtocolTest(unittest.TestCase):
             server.server_close()
             upstream.shutdown()
             upstream.server_close()
-
-    def test_model_specific_prompt_and_general_fallback(self):
-        bridge = load_bridge()
-        with tempfile.TemporaryDirectory() as directory:
-            Path(directory, "glm-5.2.md").write_text("glm prompt")
-            Path(directory, "Unified.md").write_text("general prompt")
-            req = {"model": "wandb/zai-org/GLM-5.2", "messages": [{"role": "user", "content": "hello"}]}
-            translated = bridge.to_marimo_request(req, prompt_dir=directory)
-            self.assertEqual(translated["uiMessages"][0]["parts"][0]["text"], "glm prompt")
-            req["model"] = "wandb/nvidia/other-model"
-            translated = bridge.to_marimo_request(req, prompt_dir=directory)
-            self.assertEqual(translated["uiMessages"][0]["parts"][0]["text"], "general prompt")
 
     def test_converts_image_input_into_vercel_file_part(self):
         bridge = load_bridge()

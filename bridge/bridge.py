@@ -18,19 +18,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 
-MODEL_PROMPTS = {
-    "wandb/zai-org/GLM-5.2": "glm-5.2.md",
-    "wandb/zai-org/GLM-5.3-Flash": "glm-5-3-flash.md",
-    "wandb/deepseek-ai/DeepSeek-V4.1-Flash": "deepseek-4-1.md",
-    "wandb/deepseek-ai/DeepSeek-V4-Pro-0813": "deepseek v4.md",
-    "wandb/deepseek-ai/DeepSeek-V4-Flash-0731": "deepseek v4.md",
-    "wandb/deepseek-ai/DeepSeek-V4-Flash": "deepseek v4.md",
-    "wandb/deepseek-ai/DeepSeek-V4-Pro": "deepseek v4.md",
-    "wandb/Qwen/Qwen3.8-27B": "qwen-3.8.md",
-    "wandb/reflection/Beam-1.0-501B-A23B": "Beam.md",
-}
-
-
 def to_ui_messages(messages):
     result = []
     pending = {}
@@ -81,7 +68,7 @@ def to_ui_messages(messages):
     return result
 
 
-def to_marimo_request(request, prompt_dir=None):
+def to_marimo_request(request):
     tools = []
     choice = request.get("tool_choice", "auto")
     if choice not in ("auto", "none", None):
@@ -93,11 +80,7 @@ def to_marimo_request(request, prompt_dir=None):
         tools.append({"name": function["name"], "description": function.get("description", ""),
                       "parameters": function.get("parameters", {"type": "object"}),
                       "source": "frontend", "mode": ["manual", "ask", "agent"]})
-    messages = list(request["messages"])
-    if prompt_dir is not None:
-        prompt = Path(prompt_dir, MODEL_PROMPTS.get(request["model"], "Unified.md")).read_text(encoding="utf-8")
-        messages.insert(0, {"role": "system", "content": prompt})
-    return {"model": request["model"], "includeOtherCode": "", "uiMessages": to_ui_messages(messages),
+    return {"model": request["model"], "includeOtherCode": "", "uiMessages": to_ui_messages(request["messages"]),
             "id": uuid.uuid4().hex, "tools": tools, "options": {"webSearch": False}}
 
 
@@ -350,7 +333,7 @@ def make_server(host, port, config):
                 body = json.loads(self.rfile.read(length))
                 if body.get("model") not in config["models"]:
                     raise ValueError("Model is not available in this session")
-                payload = json.dumps(to_marimo_request(body, config.get("prompt_dir"))).encode()
+                payload = json.dumps(to_marimo_request(body)).encode()
                 current = {**config, **read_session(config["session_path"])} if config.get("session_path") else config
                 if not hmac.compare_digest(current["local_key"], config["local_key"]):
                     raise ValueError("Local client key changed; restart the bridge")
@@ -409,7 +392,6 @@ def main():
         return
     catalog_path = Path(__file__).with_name("models.json")
     config["models"] = [model["id"] for model in json.loads(catalog_path.read_text(encoding="utf-8"))]
-    config["prompt_dir"] = str(Path(__file__).parent.parent / "jailbreaks")
     config["session_path"] = args.session
     server = make_server("127.0.0.1", args.port, config)
     print(f"Listening on http://127.0.0.1:{server.server_port}/v1", flush=True)

@@ -25,18 +25,11 @@ def install_target(platform, home, environ):
 
 
 def install(source, target, agents):
-    prompts = source / 'jailbreaks'
-    if not (prompts / 'Unified.md').is_file():
-        raise ValueError('Missing jailbreaks submodule: run git submodule update --init')
     target.mkdir(mode=0o700, parents=True, exist_ok=True)
     runtime = target / 'bridge'
     runtime.mkdir(mode=0o700, exist_ok=True)
-    prompt_target = target / 'jailbreaks'
-    prompt_target.mkdir(mode=0o700, exist_ok=True)
     for name in ('bridge.py', 'models.json'):
         shutil.copy2(source / 'bridge' / name, runtime / name)
-    for prompt in prompts.glob('*.md'):
-        shutil.copy2(prompt, prompt_target / prompt.name)
     if agents is None:
         return runtime, None
     agents.mkdir(mode=0o700, parents=True, exist_ok=True)

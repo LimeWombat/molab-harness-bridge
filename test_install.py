@@ -3,6 +3,7 @@ import importlib.util
 import io
 import os
 import plistlib
+import shutil
 import stat
 import tempfile
 import subprocess
@@ -14,6 +15,17 @@ from pathlib import Path
 
 
 class InstallTest(unittest.TestCase):
+    def test_installer_does_not_require_or_install_jailbreak_files(self):
+        import install
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'source'
+            source.mkdir()
+            shutil.copytree(Path(__file__).parent / 'bridge', source / 'bridge')
+            runtime, _ = install.install(source, root / 'target', None)
+            self.assertTrue((runtime / 'bridge.py').is_file())
+            self.assertFalse((root / 'target' / 'jailbreaks').exists())
+
     def test_opencode_example_contains_the_model_catalog_without_credentials(self):
         source = Path(__file__).parent
         example = json.loads((source / 'examples' / 'opencode.json').read_text())
@@ -54,7 +66,7 @@ class InstallTest(unittest.TestCase):
             runtime, agent = install.install(Path(__file__).parent, root / 'app', None)
             self.assertIsNone(agent)
             self.assertTrue((runtime / 'bridge.py').is_file())
-            self.assertTrue((root / 'app' / 'jailbreaks' / 'Unified.md').is_file())
+            self.assertFalse((root / 'app' / 'jailbreaks').exists())
 
     def test_non_mac_default_install_paths(self):
         import install
@@ -106,7 +118,7 @@ class InstallTest(unittest.TestCase):
             if os.name != 'nt':
                 self.assertEqual(stat.S_IMODE(session.stat().st_mode), 0o600)
             self.assertTrue((target / 'bridge' / 'bridge.py').is_file())
-            self.assertTrue((target / 'jailbreaks' / 'glm-5.2.md').is_file())
+            self.assertFalse((target / 'jailbreaks').exists())
             with (agents / 'io.local.molab-bridge.plist').open('rb') as f:
                 agent = plistlib.load(f)
             self.assertEqual(agent['ProgramArguments'][1], str(target / 'bridge' / 'bridge.py'))

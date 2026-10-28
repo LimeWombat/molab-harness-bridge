@@ -5,3 +5,4 @@ session.json
 .env
 *.log
 .DS_Store
+/jailbreaks/

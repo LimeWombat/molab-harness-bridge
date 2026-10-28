@@ -2,20 +2,18 @@
 
 A local OpenAI Chat Completions bridge for a running [Molab](https://molab.marimo.io/notebooks) notebook. Use Molab models from DeepSeek Harness, [OpenCode](https://opencode.ai/docs/providers/#custom-provider), or another compatible client. The bridge supports text, streaming, images, and tool calls. It listens only on `127.0.0.1` and requires a local client key.
 
-The model prompts come from [togg53192-cmd/jailbreaks](https://github.com/togg53192-cmd/jailbreaks), included as a Git submodule pinned to a specific revision. The upstream repository did not contain a license when checked; consult its owner before redistributing its contents. These third-party prompts may weaken safeguards or interfere with tools.
+Molab's [restrictions on use](https://marimo.io/pages/molab/restrictions) prohibit proxying or re-exposing its AI endpoints. Do not use this bridge against Molab without the provider's permission. For supported notebook integration, use [marimo pair](https://marimo.io/pair).
 
 ## Install
 
 Requirements: Git, Python 3.9+, and an account with a running Molab notebook. Open the notebook, choose **Connect your own agent to this notebook** (or **Config → Connect your agent**), select **Prompt**, and click **Copy prompt**. It contains an authentication token: keep it private.
 
-Clone the bridge and its prompts:
+Clone the bridge:
 
 ```sh
-git clone --recurse-submodules https://github.com/LimeWombat/molab-harness-bridge.git
+git clone https://github.com/LimeWombat/molab-harness-bridge.git
 cd molab-harness-bridge
 ```
-
-If you cloned without submodules, run `git submodule update --init` first.
 
 ### macOS
 
